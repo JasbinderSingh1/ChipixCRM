@@ -1,13 +1,12 @@
 import streamlit as st
 from supabase import create_client
-from datetime import datetime
 from fpdf import FPDF
-import csv
-from io import StringIO, BytesIO
+from io import BytesIO
+from datetime import datetime
 import os
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 1. SUPABASE SETUP (Hardcoded for testing)
+# 1. SUPABASE SETUP (from secrets)
 # ────────────────────────────────────────────────────────────────────────────────
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -17,7 +16,7 @@ ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 2. ADMIN LOGIN (secure)
+# 2. ADMIN LOGIN
 # ────────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Chipix CRM", layout="wide")
 st.markdown("<h1 style='font-family: Arial; color: #1363DF;'>Chipix CRM - Customer, Sales & Service Management</h1>", unsafe_allow_html=True)
@@ -62,11 +61,10 @@ with st.expander("➕ Add New Entry"):
                 "name": name,
                 "phone": phone,
                 "entry_type": entry_type,
-                "timestamp": datetime.now().isoformat(),
-                **details
+                **details  # ✅ timestamp is NOT manually added here
             }
             response = supabase.table("chipix_customers").insert(entry).execute()
-            if response:
+            if response and response.status_code < 300:
                 st.success(f"✅ {entry_type} entry for {name} recorded.")
             else:
                 st.error(f"❌ Failed to add entry. Error: {response}")
@@ -82,7 +80,7 @@ def fetch_customers():
     return res.data if hasattr(res, 'data') else []
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 5. PDF INVOICE GENERATOR (in-memory)
+# 5. PDF INVOICE GENERATOR
 # ────────────────────────────────────────────────────────────────────────────────
 def generate_invoice(entry):
     pdf = FPDF()
@@ -95,7 +93,7 @@ def generate_invoice(entry):
         safe_val = str(val).encode("latin-1", "replace").decode("latin-1")
         pdf.cell(200, 10, txt=f"{key}: {safe_val}", ln=True)
     buffer = BytesIO()
-    pdf_output = pdf.output(dest='S').encode('latin-1')  # Get PDF as string
+    pdf_output = pdf.output(dest='S').encode('latin-1')
     buffer.write(pdf_output)
     buffer.seek(0)
     return buffer
