@@ -6,7 +6,7 @@ from datetime import datetime
 import pytz
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 1. SUPABASE SETUP (from secrets)
+# 1. SUPABASE SETUP
 # ────────────────────────────────────────────────────────────────────────────────
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -14,13 +14,13 @@ ADMIN_USERNAME = st.secrets["ADMIN_USERNAME"]
 ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# ────────────────────────────────────────────────────────────────────────────────
-# 2. SESSION-BASED ADMIN LOGIN
-# ────────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Chipix CRM", layout="wide")
 
-# Initialize session state
+ist = pytz.timezone('Asia/Kolkata')
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 2. SESSION-BASED LOGIN
+# ────────────────────────────────────────────────────────────────────────────────
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
@@ -32,6 +32,7 @@ if not st.session_state.authenticated:
     if admin_username and admin_password:
         if admin_username == ADMIN_USERNAME and admin_password == ADMIN_PASSWORD:
             st.session_state.authenticated = True
+            st.session_state.login_time = datetime.now(ist).isoformat()
             st.success("✅ Login successful. Please wait...")
             st.rerun()
         else:
@@ -39,15 +40,22 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 3. HEADER + CLOCK
+# 3. HEADER + LOGOUT + CLOCK
 # ────────────────────────────────────────────────────────────────────────────────
-st.markdown("<h1 style='font-family: Arial; color: #1363DF;'>Chipix CRM - Customer, Sales & Service Management</h1>", unsafe_allow_html=True)
-ist = pytz.timezone('Asia/Kolkata')
+col1, col2 = st.columns([0.8, 0.2])
+with col1:
+    st.markdown("<h1 style='font-family: Arial; color: #1363DF;'>Chipix CRM - Customer, Sales & Service Management</h1>", unsafe_allow_html=True)
+
+with col2:
+    if st.button("🚪 Logout"):
+        st.session_state.clear()
+        st.experimental_rerun()
+
 current_time = datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S')
 st.markdown(f"### 🕒 Current IST Time: `{current_time}`")
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 4. ADD NEW ENTRY
+# 4. ADD ENTRY FORM
 # ────────────────────────────────────────────────────────────────────────────────
 with st.expander("➕ Add New Entry"):
     name = st.text_input("Customer Name")
@@ -80,18 +88,24 @@ with st.expander("➕ Add New Entry"):
 
     if st.button("Submit Entry"):
         if validate_inputs():
-            timestamp = datetime.now(ist).isoformat()
+            timestamp_dt = datetime.now(ist)
+            timestamp = timestamp_dt.isoformat()
+            pretty_time = timestamp_dt.strftime('%d-%m-%Y %I:%M:%S %p')
+
             entry = {
                 "name": name,
                 "phone": phone,
                 "entry_type": entry_type,
                 "timestamp": timestamp,
+                "invoice_time": pretty_time,
                 **details
             }
+
             response = supabase.table("chipix_customers").insert(entry).execute()
 
             if hasattr(response, "data") and response.data:
-                st.success(f"✅ {entry_type} entry for {name} recorded.")
+                st.success(f"✅ {entry_type} entry for **{name}** recorded successfully.")
+                st.info(f"🕒 Invoice generated at `{pretty_time}`")
             else:
                 error_msg = getattr(getattr(response, "error", None), "message", "Unknown error")
                 st.error(f"❌ Failed to add entry. Error: {error_msg}")
@@ -105,7 +119,7 @@ def fetch_customers():
     return res.data if hasattr(res, "data") else []
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 6. PDF INVOICE GENERATOR
+# 6. PDF INVOICE GENERATOR (includes invoice_time)
 # ────────────────────────────────────────────────────────────────────────────────
 def generate_invoice(entry):
     pdf = FPDF()
@@ -114,17 +128,18 @@ def generate_invoice(entry):
     pdf.cell(200, 10, txt="Chipix Invoice", ln=True, align="C")
     pdf.cell(200, 10, txt="Generated by Chipix CRM", ln=True, align="C")
     pdf.ln(10)
+
     for key, val in entry.items():
         safe_val = str(val).encode("latin-1", "replace").decode("latin-1")
         pdf.cell(200, 10, txt=f"{key}: {safe_val}", ln=True)
+
     buffer = BytesIO()
-    pdf_output = pdf.output(dest='S').encode('latin-1')
-    buffer.write(pdf_output)
+    buffer.write(pdf.output(dest='S').encode('latin-1'))
     buffer.seek(0)
     return buffer
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 7. SEARCH & MANAGE CUSTOMER
+# 7. SEARCH & MANAGE
 # ────────────────────────────────────────────────────────────────────────────────
 with st.expander("🔍 Search & Manage Customer"):
     query = st.text_input("Search by Name or Phone")
@@ -138,7 +153,7 @@ with st.expander("🔍 Search & Manage Customer"):
                     st.success(f"🛒 *{r['name']}* | {r['phone']} | {r['product']} | ₹{r['price']} | {r['warranty']}")
                     if st.button(f"🖨 Generate Invoice for {r['name']}", key=f"invoice_{r['id']}"):
                         pdf_buffer = generate_invoice(r)
-                        st.download_button("📥 Download Invoice PDF", data=pdf_buffer, file_name=f"{r['name']}_invoice.pdf")
+                        st.download_button("📥 Download Invoice PDF", data=pdf_buffer, file_name=f"{r['name']}_invoice.pdf", key=f"dl_{r['id']}")
                 else:
                     st.info(f"🛠 *{r['name']}* | {r['phone']} | {r['item']} | {r['issue']} | Status: {r['status']}")
                     cols = st.columns([3, 3, 3])
