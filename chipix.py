@@ -16,27 +16,44 @@ ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 2. ADMIN LOGIN
+# 2. SESSION-BASED ADMIN LOGIN
 # ────────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Chipix CRM", layout="wide")
-st.markdown("<h1 style='font-family: Arial; color: #1363DF;'>Chipix CRM - Customer, Sales & Service Management</h1>", unsafe_allow_html=True)
 
-admin_username = st.text_input("Admin Username")
-admin_password = st.text_input("Admin Password", type="password")
+# Initialize session state
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
 
-if admin_username != ADMIN_USERNAME or admin_password != ADMIN_PASSWORD:
-    st.warning("🚫 Unauthorized. Enter correct credentials to proceed.")
+if not st.session_state.authenticated:
+    st.markdown("<h1 style='font-family: Arial; color: #1363DF;'>Chipix CRM Login</h1>", unsafe_allow_html=True)
+    admin_username = st.text_input("Admin Username")
+    admin_password = st.text_input("Admin Password", type="password")
+
+    if admin_username and admin_password:
+        if admin_username == ADMIN_USERNAME and admin_password == ADMIN_PASSWORD:
+            st.session_state.authenticated = True
+            st.success("✅ Login successful. Please wait...")
+            st.rerun()
+        else:
+            st.error("🚫 Incorrect username or password.")
     st.stop()
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 3. ADD NEW ENTRY
+# 3. HEADER + CLOCK
+# ────────────────────────────────────────────────────────────────────────────────
+st.markdown("<h1 style='font-family: Arial; color: #1363DF;'>Chipix CRM - Customer, Sales & Service Management</h1>", unsafe_allow_html=True)
+ist = pytz.timezone('Asia/Kolkata')
+current_time = datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S')
+st.markdown(f"### 🕒 Current IST Time: `{current_time}`")
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 4. ADD NEW ENTRY
 # ────────────────────────────────────────────────────────────────────────────────
 with st.expander("➕ Add New Entry"):
     name = st.text_input("Customer Name")
     phone = st.text_input("Phone Number")
     entry_type = st.radio("Entry Type", ["Purchase", "Service"], horizontal=True)
 
-    # Dynamic Fields
     details = {}
     if entry_type == "Purchase":
         product = st.text_input("Product Name")
@@ -63,7 +80,6 @@ with st.expander("➕ Add New Entry"):
 
     if st.button("Submit Entry"):
         if validate_inputs():
-            ist = pytz.timezone('Asia/Kolkata')
             timestamp = datetime.now(ist).isoformat()
             entry = {
                 "name": name,
@@ -81,7 +97,7 @@ with st.expander("➕ Add New Entry"):
                 st.error(f"❌ Failed to add entry. Error: {error_msg}")
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 4. FETCH RECORDS
+# 5. FETCH RECORDS
 # ────────────────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=60)
 def fetch_customers():
@@ -89,7 +105,7 @@ def fetch_customers():
     return res.data if hasattr(res, "data") else []
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 5. PDF INVOICE GENERATOR
+# 6. PDF INVOICE GENERATOR
 # ────────────────────────────────────────────────────────────────────────────────
 def generate_invoice(entry):
     pdf = FPDF()
@@ -108,7 +124,7 @@ def generate_invoice(entry):
     return buffer
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 6. SEARCH & MANAGE CUSTOMER
+# 7. SEARCH & MANAGE CUSTOMER
 # ────────────────────────────────────────────────────────────────────────────────
 with st.expander("🔍 Search & Manage Customer"):
     query = st.text_input("Search by Name or Phone")
