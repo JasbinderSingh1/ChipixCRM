@@ -2,8 +2,6 @@ import streamlit as st
 from supabase import create_client
 from fpdf import FPDF
 from io import BytesIO
-from datetime import datetime
-import os
 
 # ────────────────────────────────────────────────────────────────────────────────
 # 1. SUPABASE SETUP (from secrets)
@@ -61,13 +59,15 @@ with st.expander("➕ Add New Entry"):
                 "name": name,
                 "phone": phone,
                 "entry_type": entry_type,
-                **details  # ✅ timestamp is NOT manually added here
+                **details  # timestamp will be added by Supabase (IST default)
             }
             response = supabase.table("chipix_customers").insert(entry).execute()
-            if response and response.status_code < 300:
+            
+            # ✅ Corrected response handling
+            if response.get("error") is None:
                 st.success(f"✅ {entry_type} entry for {name} recorded.")
             else:
-                st.error(f"❌ Failed to add entry. Error: {response}")
+                st.error(f"❌ Failed to add entry. Error: {response['error']['message']}")
         else:
             st.error("❌ Please fill all required fields.")
 
@@ -77,7 +77,7 @@ with st.expander("➕ Add New Entry"):
 @st.cache_data(ttl=60)
 def fetch_customers():
     res = supabase.table("chipix_customers").select("*").order("timestamp", desc=True).execute()
-    return res.data if hasattr(res, 'data') else []
+    return res.data if res and "data" in res else []
 
 # ────────────────────────────────────────────────────────────────────────────────
 # 5. PDF INVOICE GENERATOR
