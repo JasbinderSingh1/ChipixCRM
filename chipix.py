@@ -59,15 +59,13 @@ with st.expander("➕ Add New Entry"):
                 "name": name,
                 "phone": phone,
                 "entry_type": entry_type,
-                **details  # timestamp will be added by Supabase (IST default)
+                **details  # timestamp will be auto-added in IST by Supabase
             }
             response = supabase.table("chipix_customers").insert(entry).execute()
-            
-            # ✅ Corrected response handling
-            if response.get("error") is None:
+            if response.error is None:
                 st.success(f"✅ {entry_type} entry for {name} recorded.")
             else:
-                st.error(f"❌ Failed to add entry. Error: {response['error']['message']}")
+                st.error(f"❌ Failed to add entry. Error: {response.error.message}")
         else:
             st.error("❌ Please fill all required fields.")
 
@@ -77,7 +75,7 @@ with st.expander("➕ Add New Entry"):
 @st.cache_data(ttl=60)
 def fetch_customers():
     res = supabase.table("chipix_customers").select("*").order("timestamp", desc=True).execute()
-    return res.data if res and "data" in res else []
+    return res.data if res and res.data else []
 
 # ────────────────────────────────────────────────────────────────────────────────
 # 5. PDF INVOICE GENERATOR
