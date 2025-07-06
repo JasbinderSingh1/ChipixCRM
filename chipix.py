@@ -52,23 +52,16 @@ with st.form("new_entry_form", clear_on_submit=True):
     phone = st.text_input("Phone Number")
     entry_type = st.radio("Entry Type", ["Purchase", "Service"], horizontal=True)
 
-    def validate():
-        if not name.strip().replace(" ", "").isalpha():
-            st.error("Name must contain only letters.")
-            return False
-        if not phone.isdigit() or len(phone) != 10:
-            st.error("Phone number must be 10 digits.")
-            return False
-        return True
-
+    # Initialize an empty details dictionary
     details = {}
+
     if entry_type == "Purchase":
         st.markdown("#### 🛒 Purchase Details")
         product = st.text_input("Product Name")
         price = st.number_input("Amount Paid (₹)", min_value=0.0, format="%.2f")
         warranty = st.selectbox("Warranty Period", ["No Warranty", "1 Month", "3 Months", "6 Months", "1 Year", "2 Years"])
         details = {"product": product, "price": price, "warranty": warranty}
-    else:
+    elif entry_type == "Service":
         st.markdown("#### 🛠️ Service Details")
         item = st.text_input("Electronic Item")
         issue = st.text_area("Issue Description")
@@ -77,8 +70,22 @@ with st.form("new_entry_form", clear_on_submit=True):
 
     submitted = st.form_submit_button("Submit Entry")
 
+    # Validation function
+    def validate():
+        if not name.strip().replace(" ", "").isalpha():
+            st.error("Name must contain only letters.")
+            return False
+        if not phone.isdigit() or len(phone) != 10:
+            st.error("Phone number must be 10 digits.")
+            return False
+        if not all(details.values()):
+            st.error("Please fill all the required fields for the selected entry type.")
+            return False
+        return True
+
+    # Handle form submission
     if submitted:
-        if validate() and all(details.values()):
+        if validate():
             timestamp = datetime.now(ist).isoformat()
             entry = {"name": name, "phone": phone, "entry_type": entry_type, "timestamp": timestamp, **details}
             response = supabase.table("chipix_customers").insert(entry).execute()
@@ -88,8 +95,6 @@ with st.form("new_entry_form", clear_on_submit=True):
             else:
                 error = getattr(getattr(response, "error", None), "message", "Unknown error")
                 st.error(f"❌ Entry failed: {error}")
-        else:
-            st.warning("⚠️ Please fill all fields correctly.")
 
 # ──────────────────────────────
 # 5. Search & Invoice
