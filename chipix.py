@@ -119,7 +119,7 @@ def fetch_customers():
     return res.data if hasattr(res, "data") else []
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 6. PDF INVOICE GENERATOR (includes invoice_time)
+# 6. PDF INVOICE GENERATOR
 # ────────────────────────────────────────────────────────────────────────────────
 def generate_invoice(entry):
     pdf = FPDF()
@@ -139,7 +139,7 @@ def generate_invoice(entry):
     return buffer
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 7. SEARCH & MANAGE (Updated to show entry time)
+# 7. SEARCH & MANAGE (uses invoice_time directly)
 # ────────────────────────────────────────────────────────────────────────────────
 with st.expander("🔍 Search & Manage Customer"):
     query = st.text_input("Search by Name or Phone")
@@ -149,11 +149,7 @@ with st.expander("🔍 Search & Manage Customer"):
         if filtered:
             st.write(f"📄 Found {len(filtered)} matching records:")
             for r in filtered:
-                # Format timestamp
-                try:
-                    entry_time = datetime.fromisoformat(r['timestamp']).strftime('%d-%m-%Y %I:%M:%S %p')
-                except Exception:
-                    entry_time = "N/A"
+                entry_time = r.get('invoice_time', 'N/A')
 
                 if r.get('entry_type') == 'Purchase':
                     st.success(
