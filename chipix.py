@@ -66,7 +66,7 @@ with st.expander("➕ Add New Entry"):
     if entry_type == "Purchase":
         product = st.text_input("Product Name")
         price = st.number_input("Amount Paid (₹)", min_value=0.0, format="%.2f")
-        warranty = st.selectbox("Warranty Period", ["1 Month", "3 Months", "6 Months", "1 Year", "2 Years"])
+        warranty = st.selectbox("Warranty Period", ["No Warranty", "1 Month", "3 Months", "6 Months", "1 Year", "2 Years"])
         details = {"product": product, "price": price, "warranty": warranty}
     else:
         item = st.text_input("Electronic Item")
