@@ -139,7 +139,7 @@ def generate_invoice(entry):
     return buffer
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 7. SEARCH & MANAGE
+# 7. SEARCH & MANAGE (Updated to show entry time)
 # ────────────────────────────────────────────────────────────────────────────────
 with st.expander("🔍 Search & Manage Customer"):
     query = st.text_input("Search by Name or Phone")
@@ -149,13 +149,24 @@ with st.expander("🔍 Search & Manage Customer"):
         if filtered:
             st.write(f"📄 Found {len(filtered)} matching records:")
             for r in filtered:
+                # Format timestamp
+                try:
+                    entry_time = datetime.fromisoformat(r['timestamp']).strftime('%d-%m-%Y %I:%M:%S %p')
+                except Exception:
+                    entry_time = "N/A"
+
                 if r.get('entry_type') == 'Purchase':
-                    st.success(f"🛒 *{r['name']}* | {r['phone']} | {r['product']} | ₹{r['price']} | {r['warranty']}")
+                    st.success(
+                        f"🛒 *{r['name']}* | {r['phone']} | {r['product']} | ₹{r['price']} | {r['warranty']} | 🕒 {entry_time}"
+                    )
                     if st.button(f"🖨 Generate Invoice for {r['name']}", key=f"invoice_{r['id']}"):
                         pdf_buffer = generate_invoice(r)
-                        st.download_button("📥 Download Invoice PDF", data=pdf_buffer, file_name=f"{r['name']}_invoice.pdf", key=f"dl_{r['id']}")
+                        st.download_button("📥 Download Invoice PDF", data=pdf_buffer,
+                                           file_name=f"{r['name']}_invoice.pdf", key=f"dl_{r['id']}")
                 else:
-                    st.info(f"🛠 *{r['name']}* | {r['phone']} | {r['item']} | {r['issue']} | Status: {r['status']}")
+                    st.info(
+                        f"🛠 *{r['name']}* | {r['phone']} | {r['item']} | {r['issue']} | Status: {r['status']} | 🕒 {entry_time}"
+                    )
                     cols = st.columns([3, 3, 3])
                     cols[0].markdown(f"**{r['name']}** | {r['item']}")
                     new_status = cols[1].selectbox("Update Status", ["Pending", "In Progress", "Completed"],
